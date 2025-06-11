@@ -1,0 +1,149 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>App de Análise da Roleta</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ffffff"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('service-worker.js');
+            });
+        }
+    </script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
+        input, button, textarea { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        #resultados { margin-top: 20px; white-space: pre-wrap; background: white; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h2>🎯 Análise de Roleta Europeia</h2>
+    <label for="rodadas">Quantidade de rodadas para analisar:</label>
+    <input type="number" id="rodadas" min="1" max="1000" value="50">
+
+    <label for="numeros">Digite os números (separados por espaço ou vírgula):</label>
+    <textarea id="numeros" rows="4" placeholder="Ex: 12, 5, 18, 0, 32"></textarea>
+    
+    <button onclick="adicionarNumeros()">Adicionar</button>
+    <button onclick="resetar()">Resetar</button>
+
+    <div id="resultados"></div>
+
+    <script>
+        const cores = {
+            0: 'verde', 1: 'vermelho', 2: 'preto', 3: 'vermelho', 4: 'preto', 5: 'vermelho', 6: 'preto',
+            7: 'vermelho', 8: 'preto', 9: 'vermelho', 10: 'preto', 11: 'preto', 12: 'vermelho',
+            13: 'preto', 14: 'vermelho', 15: 'preto', 16: 'vermelho', 17: 'preto', 18: 'vermelho',
+            19: 'vermelho', 20: 'preto', 21: 'vermelho', 22: 'preto', 23: 'vermelho', 24: 'preto',
+            25: 'vermelho', 26: 'preto', 27: 'vermelho', 28: 'preto', 29: 'preto', 30: 'vermelho',
+            31: 'preto', 32: 'vermelho', 33: 'preto', 34: 'vermelho', 35: 'preto', 36: 'vermelho'
+        };
+
+        const colunas = {
+            1: [1,4,7,10,13,16,19,22,25,28,31,34],
+            2: [2,5,8,11,14,17,20,23,26,29,32,35],
+            3: [3,6,9,12,15,18,21,24,27,30,33,36]
+        };
+
+        const duzias = {
+            1: [...Array(12).keys()].map(x => x + 1),
+            2: [...Array(12).keys()].map(x => x + 13),
+            3: [...Array(12).keys()].map(x => x + 25)
+        };
+
+        let numeros = [];
+
+        function adicionarNumeros() {
+            const maxRodadas = parseInt(document.getElementById('rodadas').value);
+            const entrada = document.getElementById('numeros').value;
+            const novos = entrada.split(/[,\s]+/).map(n => parseInt(n)).filter(n => !isNaN(n) && n >= 0 && n <= 36);
+            numeros = numeros.concat(novos);
+            while (numeros.length > maxRodadas) {
+                numeros.shift();
+            }
+            document.getElementById('numeros').value = "";
+            analisar();
+        }
+
+        function resetar() {
+            numeros = [];
+            document.getElementById('resultados').innerText = "";
+        }
+
+        function cor(num) {
+            return cores[num];
+        }
+
+        function coluna(num) {
+            for (let c in colunas) {
+                if (colunas[c].includes(num)) return c;
+            }
+            return "-";
+        }
+
+        function duzia(num) {
+            for (let d in duzias) {
+                if (duzias[d].includes(num)) return d;
+            }
+            return "-";
+        }
+
+        function analisar() {
+            let freqCores = { vermelho: 0, preto: 0, verde: 0 };
+            let freqColunas = { 1: 0, 2: 0, 3: 0 };
+            let freqDuzias = { 1: 0, 2: 0, 3: 0 };
+            let ultimasCores = [];
+
+            for (let n of numeros) {
+                let c = cor(n);
+                freqCores[c]++;
+                let col = coluna(n);
+                freqColunas[col]++;
+                let d = duzia(n);
+                freqDuzias[d]++;
+                ultimasCores.push(c);
+            }
+
+            let corAtual = ultimasCores[ultimasCores.length - 1];
+            let repeticoesCor = 0;
+            for (let i = ultimasCores.length - 1; i >= 0; i--) {
+                if (ultimasCores[i] === corAtual) {
+                    repeticoesCor++;
+                } else {
+                    break;
+                }
+            }
+
+            let estrategia = [];
+            if (repeticoesCor >= 4 && (corAtual === 'vermelho' || corAtual === 'preto')) {
+                estrategia.push(`🔁 Cor "${corAtual}" repetida ${repeticoesCor} vezes → Aposte em reversão: ${corAtual === 'vermelho' ? 'preto' : 'vermelho'}`);
+            }
+
+            let menorColuna = Object.entries(freqColunas).sort((a, b) => a[1] - b[1]).slice(0, 2).map(x => x[0]);
+            estrategia.push(`📊 Aposte nas colunas ${menorColuna.join(" e ")} (menos frequentes)`);
+
+            let menorDuzia = Object.entries(freqDuzias).sort((a, b) => a[1] - b[1]).slice(0, 2).map(x => x[0]);
+            estrategia.push(`🎯 Aposte nas dúzias ${menorDuzia.join("ª e ")}ª (menos frequentes)`);
+
+            let texto = `📈 Análise das últimas ${numeros.length} rodadas:
+
+`;
+            texto += `🎨 Cores: vermelho=${freqCores.vermelho}, preto=${freqCores.preto}, verde=${freqCores.verde}
+`;
+            texto += `🧱 Colunas: 1=${freqColunas[1]}, 2=${freqColunas[2]}, 3=${freqColunas[3]}
+`;
+            texto += `📦 Dúzias: 1ª=${freqDuzias[1]}, 2ª=${freqDuzias[2]}, 3ª=${freqDuzias[3]}
+
+`;
+            texto += `📌 Estratégia sugerida:
+ - ${estrategia.join("\n - ")}`;
+
+            document.getElementById('resultados').innerText = texto;
+        }
+    </script>
+</body>
+</html>
